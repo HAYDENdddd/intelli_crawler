@@ -1,0 +1,18 @@
+{
+  "proxy_pool_cycle": {
+    "cycle": [
+      "http://c",
+      "http://b",
+      "http://a",
+      "http://c"
+    ],
+    "refreshed": [
+      "http://y",
+      "http://x"
+    ]
+  },
+  "user_agent_pool": {
+    "first": "UA1",
+    "second": "UA3"
+  }
+}

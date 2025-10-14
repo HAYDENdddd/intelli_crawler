@@ -1,0 +1,52 @@
+{
+  "progress_summary": {
+    "failed": 1,
+    "skipped": 1,
+    "success": 1
+  },
+  "wizard_template": {
+    "anti_scraping_strategies": {
+      "captcha_solver": false,
+      "delay_range": [
+        1.0,
+        3.0
+      ],
+      "proxy_pool": true,
+      "retry_on_fail": 3,
+      "use_headless_browser": false,
+      "user_agent_rotation": true
+    },
+    "crawl_depth": 1,
+    "deduplication": {
+      "by_content": true,
+      "by_url": true,
+      "store_path": "history/example_source.db"
+    },
+    "detail_pattern": {
+      "author": "span.author",
+      "content": "div.article-body",
+      "timestamp": "span.date",
+      "title": "h1.title"
+    },
+    "enable_incremental": true,
+    "entry_pattern": "ul.article-list li a",
+    "keywords_filter": [
+      "AI"
+    ],
+    "login_credentials": {
+      "password": "",
+      "username": ""
+    },
+    "output_format": "json",
+    "requires_login": false,
+    "schedule": {
+      "type": "cron",
+      "value": "0 */6 * * *"
+    },
+    "site_type": "news",
+    "source_name": "DemoSource",
+    "target_url": "https://example.com/list",
+    "time_range": null,
+    "use_entry_content": false
+  }
+}

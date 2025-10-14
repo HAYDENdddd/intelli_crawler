@@ -1,0 +1,76 @@
+{
+  "global_config_roundtrip": {
+    "default_delay_range": [
+      0.2,
+      0.4
+    ],
+    "enable_progress_bar": false,
+    "history_dir": "data/history",
+    "max_url_display_length": 80,
+    "outputs_dir": "data/outputs",
+    "proxy_pool": {
+      "enabled": false,
+      "refresh_interval": null,
+      "source": null
+    },
+    "show_live_status": false,
+    "sources_dir": "data/sources",
+    "thread_pool_workers": 16,
+    "user_agent_list": null
+  },
+  "locator_paths": {
+    "global_config": "data/global_config.yaml",
+    "history_dir": "data/history",
+    "logs_dir": "logs",
+    "outputs_dir": "data/outputs",
+    "project_root": ".",
+    "sources_dir": "data/sources"
+  },
+  "source_roundtrip": {
+    "anti_scraping_strategies": {
+      "captcha_solver": false,
+      "delay_range": [
+        0.0,
+        0.0
+      ],
+      "proxy_pool": false,
+      "retry_on_fail": 1,
+      "use_headless_browser": false,
+      "user_agent_rotation": false
+    },
+    "crawl_depth": 1,
+    "deduplication": {
+      "by_content": true,
+      "by_url": true,
+      "store_path": "history/example.db"
+    },
+    "detail_pattern": {
+      "content": "article ::html",
+      "title": "h1::text"
+    },
+    "enable_incremental": true,
+    "entry_pattern": "ul.list li a",
+    "keywords_filter": [],
+    "login_credentials": {
+      "password": "",
+      "username": ""
+    },
+    "output_format": "json",
+    "requires_login": false,
+    "schedule": {
+      "type": "once",
+      "value": null
+    },
+    "site_type": "news",
+    "source_name": "DeepTech",
+    "target_url": "https://example.com/deep",
+    "time_range": null,
+    "use_entry_content": false
+  },
+  "ua_file_loaded": {
+    "user_agents": [
+      "UA-1",
+      "UA-2"
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "browser_fetch": {
+    "raw_attached": false,
+    "status": 200,
+    "text": "<html>ok</html>",
+    "url": "https://example.com/detail"
+  },
+  "detail_meta_fallback": {
+    "content": "Backup description",
+    "raw_html": "\n    <html>\n      <head>\n        <meta name=\"title\" content=\"From Meta\" />\n        <meta property=\"og:description\" content=\"Backup description\" />\n      </head>\n      <body>\n        <article class=\"body\"></article>\n      </body>\n    </html>\n    ",
+    "site_type": "news",
+    "source_name": "Example",
+    "title": "From Meta",
+    "url": "https://example.com/meta"
+  },
+  "foresight_records": {
+    "https://foresightnews.pro/news/alpha": {
+      "content": "Detailed insight about alpha.",
+      "published_at": "2024-05-20 10:00",
+      "raw_html": "<div class=\"list_body\">\n      <div class=\"topic\">Alpha Release</div>\n      <a class=\"news_body_title\" href=\"/news/alpha\"></a>\n      <div class=\"detail-body\">Detailed insight about alpha.</div>\n      <span class=\"topic-time\">2024-05-20 10:00</span>\n    </div>",
+      "title": "Alpha Release"
+    },
+    "https://foresightnews.pro/news/beta": {
+      "content": "Second highlight.",
+      "raw_html": "<div class=\"list_body\">\n      <div class=\"topic\">Beta Feature</div>\n      <a class=\"news_body_title\" href=\"/news/beta\"></a>\n      <div class=\"detail-body\">Second highlight.</div>\n    </div>",
+      "title": "Beta Feature"
+    }
+  },
+  "parsed_entries": [
+    "https://example.com/a",
+    "https://ext/b"
+  ],
+  "retry_success": {
+    "attempts": 2,
+    "status": 200,
+    "text": "recovered"
+  },
+  "strategy_headers": {
+    "request_headers": {
+      "X-Strategy": "enabled"
+    },
+    "response": {
+      "status": 200,
+      "text": "payload",
+      "url": "https://example.com/api"
+    },
+    "timeout": 12
+  }
+}

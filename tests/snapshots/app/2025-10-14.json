@@ -1,0 +1,4 @@
+{
+  "list_sources_output": "        信息源总览 · 共 1 个        \n                                    \n  名称      类型   输出   调度策略  \n ────────────────────────────────── \n  Example   news   json   once      \n                                    \n                     调度队列                     \n                                                  \n  任务 ID           下次执行   触发器             \n ──────────────────────────────────────────────── \n  source::Example   soon       cron[*/5 * * * *]  \n                                                  \n",
+  "run_now_output": "    Example    \n   运行结果    \n               \n  指标   数量  \n ───────────── \n  成功      2  \n  失败      1  \n  跳过      0  \n               \n"
+}

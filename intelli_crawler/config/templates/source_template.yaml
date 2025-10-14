@@ -1,0 +1,33 @@
+source_name: Example Source
+site_type: news
+target_url: https://example.com/list
+requires_login: false
+login_credentials:
+  username: ""
+  password: ""
+crawl_depth: 1
+entry_pattern: ul.article-list li a
+detail_pattern:
+  title: h1.title
+  content: div.article-body
+  author: span.author
+  timestamp: span.date
+keywords_filter:
+  - AI
+output_format: json
+schedule:
+  type: cron
+  value: "0 */6 * * *"
+time_range: null
+anti_scraping_strategies:
+  user_agent_rotation: true
+  proxy_pool: true
+  delay_range: [1, 3]
+  retry_on_fail: 3
+  use_headless_browser: false
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/example_source.db

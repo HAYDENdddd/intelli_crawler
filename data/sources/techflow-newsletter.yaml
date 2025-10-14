@@ -1,0 +1,36 @@
+source_name: TechFlow Newsletter
+site_type: news
+target_url: https://www.techflowpost.com/newsletter/index.html
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: '#addhtml dd > a'
+detail_pattern:
+  title: div.detail_header .tit
+  published_at: div.detail_header .time
+  content: div.art_detail_content
+  content_html: div.art_detail_content::html
+  original_url: div.detail_header a.c002CCC::attr(href)
+keywords_filter: []
+output_format: txt
+schedule:
+  type: cron
+  value: "0 8 * * *"
+time_range:
+  relative: "last_24_hours"
+anti_scraping_strategies:
+  user_agent_rotation: false
+  proxy_pool: false
+  delay_range:
+  - 0.5
+  - 1.5
+  retry_on_fail: 1
+  use_headless_browser: false
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/techflow_newsletter.db

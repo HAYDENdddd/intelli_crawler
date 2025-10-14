@@ -1,0 +1,55 @@
+source_name: Odaily Newsflash
+site_type: news
+target_url: https://www.odaily.news/zh-CN/newsflash
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: a[href^="/zh-CN/newsflash/"]
+detail_pattern:
+  title:
+  - h1.title
+  - h1
+  - .article-title
+  - h2.title
+  - meta[property="og:title"]::attr:content
+  - meta[name="title"]::attr:content
+  - title
+  published_at: div.list_body .topic-time
+  content:
+  - .article-content
+  - .content-body
+  - article
+  - .post-content
+  - .news-content
+  - meta[property="og:description"]::attr:content
+  - meta[name="description"]::attr:content
+  content_html:
+  - .article-content::html
+  - .content-body::html
+  - article::html
+  - .post-content::html
+  - .news-content::html
+keywords_filter: []
+output_format: txt
+schedule:
+  type: cron
+  value: "0 8 * * *"
+time_range:
+  relative: "last_24_hours"
+anti_scraping_strategies:
+  user_agent_rotation: false
+  proxy_pool: false
+  delay_range:
+  - 1.0
+  - 2.0
+  retry_on_fail: 2
+  use_headless_browser: false
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/odaily_newsflash.db
+use_entry_content: true

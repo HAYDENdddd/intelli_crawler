@@ -1,0 +1,33 @@
+source_name: Test Export CSV
+site_type: news
+target_url: https://httpbin.org/json
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: body
+detail_pattern:
+  title: body
+  content: body
+  content_html: body::html
+keywords_filter: []
+output_format: csv
+schedule:
+  type: once
+  value: null
+time_range: null
+anti_scraping_strategies:
+  user_agent_rotation: false
+  proxy_pool: false
+  delay_range:
+  - 0.5
+  - 1.0
+  retry_on_fail: 1
+  use_headless_browser: false
+  captcha_solver: false
+enable_incremental: false
+deduplication:
+  by_url: false
+  by_content: false
+  store_path: history/test_export_csv.db

@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.poetry/
+.env
+.venv
+.mypy_cache/
+.pytest_cache/
+.cache/
+logs/
+.data/
+.DS_Store
+playwright-report/
+
+# 数据文件和输出
+data/history/
+data/outputs/
+*.db
+*.sqlite
+*.sqlite3
+
+# 临时文件和缓存
+.tmp_cli/
+reports/
+*.log
+
+# IDE和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 敏感配置文件（如果有的话）
+config/secrets.yaml
+.secrets
+*.key
+*.pem

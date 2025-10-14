@@ -1,0 +1,23 @@
+{
+  "schedule_calls": [
+    {
+      "args": [
+        "AdapterCase"
+      ],
+      "callback": "<lambda>",
+      "id": "source::AdapterCase",
+      "replace_existing": true,
+      "trigger": "date[2024-01-01 10:00:00 CST]"
+    },
+    {
+      "event": "started"
+    },
+    {
+      "event": "remove",
+      "id": "source::AdapterCase"
+    },
+    {
+      "event": "shutdown"
+    }
+  ]
+}

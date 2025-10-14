@@ -1,0 +1,15 @@
+{
+  "enriched_record": {
+    "fetched_at": "2024-05-20T12:00:00Z",
+    "site_type": "news",
+    "source_name": "Example",
+    "summary": "Useful content Useful content Useful content Useful content Useful content",
+    "url": "https://example.com/insight"
+  },
+  "odaily_extract": {
+    "content": "Market update",
+    "original_url": "https://odaily.com/flash",
+    "published_at": "2024-05-20T12:00:00+00:00",
+    "title": "Flash News"
+  }
+}
