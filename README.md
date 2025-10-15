@@ -221,6 +221,68 @@ output_format: txt
 
 ---
 
+### 自动入口交互模式（智能滚动 + 点击）
+
+为适配需要“先滚动才能出现按钮、再点击加载更多”的页面，以及虚拟列表（仅保留约 20 个可视元素）的情况，支持自动模式：
+
+- 关键字段：
+  - `entry_interactions.auto: true` 开启自动模式
+  - `auto_max_rounds` 交互轮次上限（滚动/点击组合循环）
+  - `auto_stall_rounds` 连续“条目数无增长”的停滞阈值（达到即停止）
+  - `prefer_scroll_first` 每轮交互是否优先下滚（常见页面需要先滚几次才会出现“加载更多”）
+
+- 行为策略：
+  - 每轮先滚动到底（若启用 `prefer_scroll_first`），随后尝试点击 `click_more_selector`。
+  - 利用 `wait_selector` 或 `click_wait_selector` 计数列表项的增长，连续多轮不增长则判定停滞结束。
+  - 点击不再依赖“是否可见”判定，也不会因一次超时直接中断；在后续轮次持续尝试点击。
+
+- 虚拟列表聚合（突破 20 条限制）：
+  - 自动模式下，会按条目内的第一个 `a[href]` 作为唯一键，跨多轮收集新出现条目的 `outerHTML` 并在最终页面内容中追加；解析器能据此提取更多历史记录，即使 DOM 最终只保留少量可视元素。
+
+示例（三）：MarsBit 快讯（先滚动后点击 + 自动聚合）
+
+```yaml
+source_name: marsbit
+site_type: news
+target_url: https://news.marsbit.co/flash
+entry_pattern: div.flash-list-item-wrapper
+detail_pattern:
+  title: 'a.item-title'
+  published_at: div.time-left
+  content: 'h3.item-detail'
+anti_scraping_strategies:
+  use_headless_browser: true
+use_entry_content: true
+entry_interactions:
+  wait_selector: div.flash-list-item-wrapper
+  scroll_rounds: 3
+  scroll_pause_ms: 1000
+  click_more_selector: a.load-more-btn
+  click_wait_selector: div.flash-list-item-wrapper
+  auto: true
+  auto_max_rounds: 40
+  auto_stall_rounds: 6
+  prefer_scroll_first: true
+```
+
+提示（仅 20 条的排查与优化）：
+- 先清空去重历史（避免增量跳过）：
+  - `poetry run intelli-crawler source reset marsbit --yes`
+  - 或 `python3 -m intelli_crawler.app source reset marsbit --yes`
+- 加大 `scroll_pause_ms`（800–1200）与 `auto_max_rounds`（40–60），适应网络与站点响应。
+- 保持 `prefer_scroll_first: true`，确保“加载更多”按钮可见。
+- 如站点偶有“暂不增长”，可增大 `auto_stall_rounds`（6–10）。
+
+### 时间过滤说明
+
+配置中的 `time_range` 字段用于表意/示例，实际运行时的时间过滤通过 CLI 参数控制：
+- 绝对时间：`--since` 与 `--until`（ISO8601，如 `2025-10-15T02:00+08:00`）
+- 每日窗口：`--window-start` 与 `--window-duration`（例如 `08:00` 与 `36h`）
+
+相关命令示例已在「常用命令」给出。
+
+---
+
 ## 开发与测试
 
 ```bash

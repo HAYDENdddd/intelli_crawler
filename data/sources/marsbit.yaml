@@ -1,0 +1,53 @@
+source_name: marsbit
+site_type: news
+target_url: https://news.marsbit.co/flash
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: div.flash-list-item-wrapper
+detail_pattern:
+  title: 'a.item-title'
+  published_at: div.time-left
+  content: 'h3.item-detail'
+  content_html: 'a.item-title'
+keywords_filter: []
+output_format: txt
+schedule:
+  type: cron
+  value: "0 8 * * *"
+time_range:
+  relative: "last_24_hours"
+anti_scraping_strategies:
+  user_agent_rotation: true
+  proxy_pool: false
+  delay_range:
+  - 1.0
+  - 3.0
+  retry_on_fail: 2
+  use_headless_browser: true
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/marsbit_news.db
+
+use_entry_content: true
+# 入口交互配置：控制页面滚动与点击“加载更多”按钮的行为
+entry_interactions:
+  wait_selector: div.flash-list-item-wrapper          # 等待列表项加载完成
+  scroll_rounds: 5                                  # 初始滚动轮数
+  scroll_pause_ms: 900                              # (900)滚动后暂停时间（毫秒）**视网速而决定
+  click_more_selector: a.load-more-btn               # “加载更多”按钮选择器
+  click_wait_selector: div.flash-list-item-wrapper   # 点击后等待的列表项选择器
+  auto: true                                         # 启用自动加载模式
+  auto_max_rounds: 30                               # (60)最大自动加载轮数（每次加载20条）最大可获取60*20=1200条
+  auto_stall_rounds: 15                             # **决定性参数**(15)连续无新内容时停止的轮数(容忍短暂“无增长”，避免过早停止)
+  prefer_scroll_first: true                          # 优先滚动再点击
+
+#   三套预设（按目标灵活切换）
+# - 快速扫描（近时段）： scroll_pause_ms: 900 、 auto_max_rounds: 30–35 、 auto_stall_rounds: 5 、 scroll_rounds: 2
+# - 日常稳定（推荐）： scroll_pause_ms: 1000 、 auto_max_rounds: 50–60 、 auto_stall_rounds: 6–8 、 scroll_rounds: 3
+# - 深度回溯（尽量多抓）： scroll_pause_ms: 1200–1400 、 auto_max_rounds: 80–100 、 auto_stall_rounds: 50 、 scroll_rounds: 4–5

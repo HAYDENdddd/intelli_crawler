@@ -195,6 +195,11 @@ class SourceConfig(BaseModel):
         click_more_selector: str | None = None
         click_more_times: int = 0
         click_wait_selector: str | None = None
+        # 自动入口交互：智能选择滚动与点击
+        auto: bool = False
+        auto_max_rounds: int = 20
+        auto_stall_rounds: int = 3
+        prefer_scroll_first: bool = True
 
         @model_validator(mode="after")
         def _validate_non_negative(self) -> "SourceConfig.EntryInteractions":
@@ -204,6 +209,10 @@ class SourceConfig(BaseModel):
                 raise ValueError("scroll_pause_ms must be >= 0")
             if self.click_more_times < 0:
                 raise ValueError("click_more_times must be >= 0")
+            if self.auto_max_rounds < 0:
+                raise ValueError("auto_max_rounds must be >= 0")
+            if self.auto_stall_rounds < 0:
+                raise ValueError("auto_stall_rounds must be >= 0")
             return self
 
     entry_interactions: EntryInteractions = Field(default_factory=EntryInteractions)

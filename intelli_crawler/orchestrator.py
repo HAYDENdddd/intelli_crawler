@@ -149,6 +149,10 @@ class Orchestrator:
                     click_more_selector=source.entry_interactions.click_more_selector,
                     click_more_times=source.entry_interactions.click_more_times,
                     click_wait_selector=source.entry_interactions.click_wait_selector,
+                    auto_interactions=source.entry_interactions.auto,
+                    auto_max_rounds=source.entry_interactions.auto_max_rounds,
+                    auto_stall_rounds=source.entry_interactions.auto_stall_rounds,
+                    prefer_scroll_first=source.entry_interactions.prefer_scroll_first,
                 ),
             )
             if entry_activity is not None:

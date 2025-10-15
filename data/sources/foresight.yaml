@@ -37,5 +37,5 @@ use_entry_content: true
 
 entry_interactions:
   wait_selector: div.list_body a.news_body_title
-  scroll_rounds: 2
+  scroll_rounds: 10
   scroll_pause_ms: 400

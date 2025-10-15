@@ -36,7 +36,7 @@ use_entry_content: true # 入口页直接抽取记录
 entry_interactions:
   wait_selector: 'ul.newsText.all li'
   click_more_selector: 'text=点击加载更多'
-  click_more_times: 2
+  click_more_times: 20
   click_wait_selector: 'ul.newsText.all li'
   scroll_rounds: 0
   scroll_pause_ms: 500

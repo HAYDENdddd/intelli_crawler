@@ -109,7 +109,7 @@ class ProgressReporter:
             TextColumn("[dim]{task.fields[current_url]}", justify="left"),
             refresh_per_second=12,
             expand=True,
-            transient=False,
+            transient=True,
             console=self._console,
             auto_refresh=True,
             disable=not self.enabled,
@@ -178,8 +178,13 @@ class ProgressReporter:
                 )
             except Exception:
                 pass
+        # 确保停止并退出 Rich Live，避免终端残留状态
         if self._progress is not None:
             try:
+                try:
+                    self._progress.stop()
+                except Exception:
+                    pass
                 self._progress.__exit__(None, None, None)
             except Exception:
                 pass
@@ -227,7 +232,7 @@ class MultiSourceProgress:
             TextColumn("[yellow]↺{task.fields[skipped]:>3}", justify="right"),
             TextColumn("[dim]{task.fields[current_url]}", justify="left"),
             console=self.console,
-            transient=False,
+            transient=True,
             refresh_per_second=12,
             expand=True,
             disable=not self.enabled,
@@ -469,11 +474,9 @@ class ProgressActivity:
 
     def __init__(self, enabled: bool = True, console: Console | None = None) -> None:
         self.enabled = enabled
-        # 在启用时强制终端渲染；禁用或非TTY时使用默认检测
-        self.console = console or Console(
-            force_terminal=bool(enabled),
-            force_interactive=bool(enabled),
-        )
+        # 使用默认 Console 配置，避免强制修改终端交互/渲染模式
+        # 这样可以减少异常终端状态（如箭头键失效、回显异常）残留的可能性
+        self.console = console or Console()
         self._status: Status | None = None
 
     def start(self, message: str) -> None:

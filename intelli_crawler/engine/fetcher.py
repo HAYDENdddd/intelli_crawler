@@ -39,6 +39,11 @@ class FetchRequest:
     click_more_selector: str | None = None
     click_more_times: int = 0
     click_wait_selector: str | None = None
+    # Auto interactions: intelligently decide between scroll and click
+    auto_interactions: bool = False
+    auto_max_rounds: int = 0
+    auto_stall_rounds: int = 0
+    prefer_scroll_first: bool = True
 
 
 @dataclass(slots=True)
@@ -66,7 +71,20 @@ class Fetcher:
         self.proxy_pool = proxy_pool
         self.ua_pool = ua_pool
         self.logger = logger or structlog.get_logger("intelli_crawler.fetcher")
-        self._client = httpx.Client(follow_redirects=True, timeout=15)
+        # 在未启用 UA 轮换时为 HTTPX 设置一个更“像浏览器”的默认 UA，降低 403/反爬概率。
+        # 若配置中提供了 UA 列表，则优先选择 Windows UA；否则使用列表首项。
+        default_ua: str | None = None
+        try:
+            ua_list = self.global_config.user_agent_list
+            if isinstance(ua_list, list) and ua_list:
+                default_ua = next((ua for ua in ua_list if "Windows NT" in ua), ua_list[0])
+        except Exception:
+            default_ua = None
+        self._client = httpx.Client(
+            follow_redirects=True,
+            timeout=15,
+            headers={"User-Agent": default_ua} if default_ua else None,
+        )
         self._browser_sessions: dict[int, _PlaywrightSession] = {}
         self._browser_lock = Lock()
 
@@ -162,6 +180,10 @@ class Fetcher:
             click_more_selector=request.click_more_selector,
             click_more_times=request.click_more_times,
             click_wait_selector=request.click_wait_selector,
+            auto_interactions=request.auto_interactions,
+            auto_max_rounds=request.auto_max_rounds,
+            auto_stall_rounds=request.auto_stall_rounds,
+            prefer_scroll_first=request.prefer_scroll_first,
         )
 
     def _ensure_browser_session(self, headers: dict[str, str]) -> "_PlaywrightSession":
@@ -240,7 +262,16 @@ class _PlaywrightSession:
             raise RuntimeError("Playwright support requires installing the 'playwright' package.") from exc
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=True)
-        self._context = self._browser.new_context(user_agent=self._user_agent)
+        # 为中文站点在 Windows 上提升兼容性：设置中文语言与时区，减少因语言/地区导致的重定向或内容缺失。
+        try:
+            self._context = self._browser.new_context(
+                user_agent=self._user_agent,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+            )
+        except TypeError:
+            # 某些老版本 Playwright 不支持上述参数，回退到最小上下文。
+            self._context = self._browser.new_context(user_agent=self._user_agent)
         self._page = self._context.new_page()
 
     def fetch(
@@ -255,6 +286,10 @@ class _PlaywrightSession:
         click_more_selector: str | None = None,
         click_more_times: int = 0,
         click_wait_selector: str | None = None,
+        auto_interactions: bool = False,
+        auto_max_rounds: int = 0,
+        auto_stall_rounds: int = 0,
+        prefer_scroll_first: bool = True,
     ) -> BrowserResponse:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -263,6 +298,8 @@ class _PlaywrightSession:
             self._ensure_started()
             self._context.set_extra_http_headers(headers or {})
             response = None
+            aggregated_parts: list[str] = []
+            seen_urls: set[str] = set()
             try:
                 response = self._page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             except PlaywrightTimeoutError as exc:
@@ -273,31 +310,113 @@ class _PlaywrightSession:
                     self._page.wait_for_selector(wait_selector, timeout=timeout_ms)
                 except PlaywrightTimeoutError as exc:
                     raise RuntimeError(f"Playwright selector wait timeout for '{wait_selector}': {exc}") from exc
-            # Optional: perform load-more clicks
-            if click_more_selector and click_more_times > 0:
-                for _ in range(int(click_more_times)):
-                    try:
-                        self._page.click(click_more_selector, timeout=timeout_ms)
-                    except PlaywrightTimeoutError as exc:
-                        # Stop further clicks if selector not clickable
-                        break
-                    if click_wait_selector:
+            # Auto interactions: intelligently mix scroll and click
+            if auto_interactions and auto_max_rounds > 0:
+                item_selector = wait_selector or click_wait_selector
+                items_count = 0
+                stable_rounds = 0
+                for _ in range(int(auto_max_rounds)):
+                    # Scroll first if preferred
+                    if prefer_scroll_first:
                         try:
-                            self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
-                        except PlaywrightTimeoutError:
-                            # Continue even if wait fails; content may still append
+                            self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        except Exception:
                             pass
-                    self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
-            # Optional: perform incremental scrolls to bottom
-            if scroll_rounds and scroll_rounds > 0:
-                for _ in range(int(scroll_rounds)):
-                    try:
-                        self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    except Exception:
-                        pass
-                    self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
+                        self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
+                    # Try clicking load-more regardless of visibility to avoid false negatives.
+                    # Do not break the loop on timeout; the button may appear in subsequent rounds.
+                    if click_more_selector:
+                        try:
+                            locator = self._page.locator(click_more_selector)
+                            # If the element exists in DOM, attempt to click the first match.
+                            if locator.count() > 0:
+                                try:
+                                    locator.first.click(timeout=min(timeout_ms, 3000))
+                                except PlaywrightTimeoutError:
+                                    # Keep looping; the page may not be ready yet.
+                                    pass
+                                if click_wait_selector:
+                                    try:
+                                        self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
+                                    except PlaywrightTimeoutError:
+                                        pass
+                                self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
+                        except Exception:
+                            # Any locator/query issues should not stop the auto loop.
+                            pass
+                    # Count items to detect progress
+                    new_count = items_count
+                    if item_selector:
+                        try:
+                            new_count = self._page.locator(item_selector).count()
+                        except Exception:
+                            new_count = items_count
+                        # Opportunistically aggregate new items' HTML by unique link to avoid virtualization limits
+                        try:
+                            locator = self._page.locator(item_selector)
+                            count = locator.count()
+                            for i in range(count):
+                                try:
+                                    item = locator.nth(i)
+                                    # Use first link href inside the item as unique key
+                                    href = None
+                                    try:
+                                        link = item.locator("a[href]").first
+                                        href = link.get_attribute("href")
+                                    except Exception:
+                                        href = None
+                                    if not href or href in seen_urls:
+                                        continue
+                                    seen_urls.add(href)
+                                    try:
+                                        html_piece = item.evaluate("el => el.outerHTML")
+                                    except Exception:
+                                        try:
+                                            html_piece = item.inner_html()
+                                        except Exception:
+                                            html_piece = ""
+                                    if html_piece:
+                                        aggregated_parts.append(str(html_piece))
+                                except Exception:
+                                    continue
+                        except Exception:
+                            pass
+                    if new_count <= items_count:
+                        stable_rounds += 1
+                    else:
+                        stable_rounds = 0
+                        items_count = new_count
+                    if stable_rounds >= max(1, int(auto_stall_rounds)):
+                        break
+            else:
+                # Manual interactions: scroll then click
+                if scroll_rounds and scroll_rounds > 0:
+                    for _ in range(int(scroll_rounds)):
+                        try:
+                            self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        except Exception:
+                            pass
+                        self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
+                if click_more_selector and click_more_times > 0:
+                    for _ in range(int(click_more_times)):
+                        try:
+                            self._page.click(click_more_selector, timeout=timeout_ms)
+                        except PlaywrightTimeoutError:
+                            break
+                        if click_wait_selector:
+                            try:
+                                self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
+                            except PlaywrightTimeoutError:
+                                pass
+                        self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
             self._page.wait_for_timeout(250)
             content = self._page.content()
+            # Append aggregated item HTML parts collected during auto interactions
+            if aggregated_parts:
+                try:
+                    content = content + "\n" + "\n".join(aggregated_parts)
+                except Exception:
+                    pass
             final_url = self._page.url
             status_code = response.status if response else 200
             response_headers = dict(response.headers) if response else {}

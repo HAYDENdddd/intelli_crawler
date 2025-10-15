@@ -27,10 +27,19 @@ anti_scraping_strategies:
   - 0.5
   - 1.5
   retry_on_fail: 1
-  use_headless_browser: false
+  use_headless_browser: true
   captcha_solver: false
 enable_incremental: true
 deduplication:
   by_url: true
   by_content: true
   store_path: history/techflow_newsletter.db
+  use_entry_content: true # 入口页直接抽取记录
+# 入口页交互配置：等待列表出现、点击“加载更多”8次、再次等待列表更新、不滚动、每次点击后暂停500毫秒
+entry_interactions:
+  wait_selector: '#addhtml dd > a'          # 等待文章列表加载完成
+  click_more_selector: 'a.linmore.dbd'      # “加载更多”按钮
+  click_more_times: 10                       # 连续点击8次以加载更多文章
+  click_wait_selector: '#addhtml dd > a'    # 每次点击后等待列表更新
+  scroll_rounds: 3                          # 不执行额外滚动
+  scroll_pause_ms: 500                      # 点击间隔500毫秒，降低被封风险

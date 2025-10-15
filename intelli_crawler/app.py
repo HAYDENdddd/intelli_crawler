@@ -68,6 +68,20 @@ log_app = typer.Typer(
 
 console = Console()
 
+# 终端安全保护：进程退出时强制恢复终端的规范模式
+# 在极少数情况下，第三方库或异常导致终端处于非规范模式（例如上下键异常、输入不回显）。
+# 通过 atexit 钩子执行 `stty sane` 可将终端重置为正常状态，避免影响后续使用。
+import atexit as _atexit
+import subprocess as _subprocess
+
+def _reset_terminal_state() -> None:  # pragma: no cover - 环境相关的防御性代码
+    try:
+        _subprocess.run(["stty", "sane"], check=False)
+    except Exception:
+        pass
+
+_atexit.register(_reset_terminal_state)
+
 
 @dataclass
 class AppState:
@@ -578,7 +592,12 @@ def source_run(
             console.print(_render_window_summary(window))
     
     # 在TTY显示进度；quiet 模式强制关闭进度
-    progress_flag = _progress_default_enabled() and (not quiet)
+    try:
+        global_cfg = state.repository.load_global_config()
+        enable_progress = bool(getattr(global_cfg, "enable_progress_bar", True))
+    except Exception:
+        enable_progress = True
+    progress_flag = _progress_default_enabled() and enable_progress and (not quiet)
     summary = state.orchestrator.run_source(
         name,
         progress_enabled=progress_flag,
@@ -712,8 +731,13 @@ def source_run_all(
     
     concurrency = max(1, optimal_concurrency)
     
-    # 默认显示进度（Rich 动画进度条），quiet 模式下关闭
-    progress_enabled = not quiet
+    # 默认显示进度（Rich 动画进度条），quiet 模式或全局关闭时关闭
+    try:
+        global_cfg = state.repository.load_global_config()
+        enable_progress = bool(getattr(global_cfg, "enable_progress_bar", True))
+    except Exception:
+        enable_progress = True
+    progress_enabled = (not quiet) and enable_progress
 
     results_map: dict[str, tuple[dict[str, int], str]] = {}
     total_success = total_failed = total_skipped = 0
