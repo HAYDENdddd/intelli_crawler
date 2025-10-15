@@ -56,8 +56,8 @@ poetry run intelli-crawler source run-all \                     # 指定每日�
 
 # 历史管理
 poetry run intelli-crawler source history "Foresight News" --limit 10  # 查看信息源抓取历史记录
-poetry run intelli-crawler source reset "Foresight News" --yes         # 清空指定源的历史记录
-poetry run intelli-crawler source reset-all --yes                      # 清空所有源的历史记录
+poetry run intelli-crawler source reset "Foresight News"          # 清空指定源的历史记录
+poetry run intelli-crawler source reset-all                      # 清空所有源的历史记录
 
 # 日志查看
 poetry run intelli-crawler log list                             # 列出所有可用的日志文件
