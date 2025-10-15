@@ -138,6 +138,63 @@ class Parser:
             return css.strip(), mode.strip().lower()
         return selector.strip(), "text"
 
+    def extract_list_records(self, source: SourceConfig, html: str, base_url: str) -> dict[str, dict[str, Any]]:
+        """
+        通用的入口页记录抽取：
+        - 使用 `source.entry_pattern` 选择每条记录的包裹元素（如列表项、时间线块）。
+        - 对每个包裹元素，按 `source.detail_pattern` 相对选择器提取字段。
+        - 优先使用包裹元素内的首个有效链接作为记录URL；否则以 data-id/data-time 生成稳定的锚点URL。
+
+        返回：记录URL → 字段字典。
+        """
+        parser = HTMLParser(html)
+        records: dict[str, dict[str, Any]] = {}
+        for item in parser.css(source.entry_pattern):
+            record: dict[str, Any] = {}
+            # 按字段配置提取内容（相对当前项）
+            for field, selector_config in (source.detail_pattern or {}).items():
+                selectors = selector_config if isinstance(selector_config, list) else [selector_config]
+                field_value = None
+                for selector in selectors:
+                    css_selector, mode = self._split_selector(selector)
+                    if not css_selector:
+                        continue
+                    node = item.css_first(css_selector)
+                    if node:
+                        if mode == "html":
+                            field_value = node.html
+                        elif mode.startswith("attr:"):
+                            attr = mode.split(":", 1)[1]
+                            field_value = node.attributes.get(attr)
+                        else:
+                            field_value = node.text(separator=" ", strip=True)
+                        if field_value and str(field_value).strip():
+                            break
+                record[field] = field_value if field_value and str(field_value).strip() else None
+
+            # 保留原始片段HTML，便于后续提取和检索
+            record.setdefault("raw_html", item.html or "")
+
+            # 生成记录URL：优先内链；否则使用稳定锚点
+            record_url: str | None = None
+            link = item.css_first("a[href]")
+            if link:
+                href = (link.attributes.get("href") or "").strip()
+                if href and not href.startswith(("javascript:", "#")):
+                    record_url = urljoin(base_url, href)
+            if not record_url:
+                data_id = item.attributes.get("data-id")
+                if data_id:
+                    record_url = urljoin(base_url, f"#id-{data_id}")
+                else:
+                    data_time = item.attributes.get("data-time")
+                    if data_time:
+                        record_url = urljoin(base_url, f"#time-{data_time}")
+
+            if record_url:
+                records[record_url] = record
+        return records
+
     def extract_foresight_records(self, html: str, base_url: str) -> dict[str, dict[str, Any]]:
         parser = HTMLParser(html)
         records: dict[str, dict[str, Any]] = {}

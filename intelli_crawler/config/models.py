@@ -181,6 +181,32 @@ class SourceConfig(BaseModel):
     enable_incremental: bool = True
     use_entry_content: bool = False
     deduplication: DeduplicationConfig = Field(default_factory=DeduplicationConfig)
+    # Entry page interactions for dynamic content (optional)
+    # - wait_selector: CSS selector to wait for after navigation
+    # - scroll_rounds: number of times to scroll to page bottom to load more
+    # - scroll_pause_ms: pause between scrolls in milliseconds
+    # - click_more_selector: CSS selector for a "load more" button
+    # - click_more_times: number of clicks to attempt
+    # - click_wait_selector: selector to wait after each click
+    class EntryInteractions(BaseModel):
+        wait_selector: str | None = None
+        scroll_rounds: int = 0
+        scroll_pause_ms: int = 300
+        click_more_selector: str | None = None
+        click_more_times: int = 0
+        click_wait_selector: str | None = None
+
+        @model_validator(mode="after")
+        def _validate_non_negative(self) -> "SourceConfig.EntryInteractions":
+            if self.scroll_rounds < 0:
+                raise ValueError("scroll_rounds must be >= 0")
+            if self.scroll_pause_ms < 0:
+                raise ValueError("scroll_pause_ms must be >= 0")
+            if self.click_more_times < 0:
+                raise ValueError("click_more_times must be >= 0")
+            return self
+
+    entry_interactions: EntryInteractions = Field(default_factory=EntryInteractions)
 
     @model_validator(mode="after")
     def _validate_patterns(self) -> "SourceConfig":

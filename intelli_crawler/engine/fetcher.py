@@ -30,6 +30,15 @@ class FetchRequest:
     cookies: dict[str, str] | None = None
     timeout: float | None = None
     force_browser: bool = False
+    # When using headless browser, optionally wait for a CSS selector to appear
+    wait_selector: str | None = None
+    # Scroll the page bottom N rounds to trigger lazy loading
+    scroll_rounds: int = 0
+    scroll_pause_ms: int = 300
+    # Click a "load more" button selector N times
+    click_more_selector: str | None = None
+    click_more_times: int = 0
+    click_wait_selector: str | None = None
 
 
 @dataclass(slots=True)
@@ -143,7 +152,17 @@ class Fetcher:
         """Use Playwright to retrieve dynamic pages when configured."""
 
         session = self._ensure_browser_session(headers)
-        return session.fetch(request.url, headers, timeout)
+        return session.fetch(
+            request.url,
+            headers,
+            timeout,
+            wait_selector=request.wait_selector,
+            scroll_rounds=request.scroll_rounds,
+            scroll_pause_ms=request.scroll_pause_ms,
+            click_more_selector=request.click_more_selector,
+            click_more_times=request.click_more_times,
+            click_wait_selector=request.click_wait_selector,
+        )
 
     def _ensure_browser_session(self, headers: dict[str, str]) -> "_PlaywrightSession":
         thread_id = get_ident()
@@ -224,7 +243,19 @@ class _PlaywrightSession:
         self._context = self._browser.new_context(user_agent=self._user_agent)
         self._page = self._context.new_page()
 
-    def fetch(self, url: str, headers: dict[str, str], timeout: float) -> BrowserResponse:
+    def fetch(
+        self,
+        url: str,
+        headers: dict[str, str],
+        timeout: float,
+        *,
+        wait_selector: str | None = None,
+        scroll_rounds: int = 0,
+        scroll_pause_ms: int = 300,
+        click_more_selector: str | None = None,
+        click_more_times: int = 0,
+        click_wait_selector: str | None = None,
+    ) -> BrowserResponse:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
         timeout_ms = int(max(timeout, 30.0) * 1000)
@@ -236,6 +267,35 @@ class _PlaywrightSession:
                 response = self._page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             except PlaywrightTimeoutError as exc:
                 raise RuntimeError(f"Playwright timeout: {exc}") from exc
+            # If caller provided a selector, wait for it to appear to ensure dynamic content is ready
+            if wait_selector:
+                try:
+                    self._page.wait_for_selector(wait_selector, timeout=timeout_ms)
+                except PlaywrightTimeoutError as exc:
+                    raise RuntimeError(f"Playwright selector wait timeout for '{wait_selector}': {exc}") from exc
+            # Optional: perform load-more clicks
+            if click_more_selector and click_more_times > 0:
+                for _ in range(int(click_more_times)):
+                    try:
+                        self._page.click(click_more_selector, timeout=timeout_ms)
+                    except PlaywrightTimeoutError as exc:
+                        # Stop further clicks if selector not clickable
+                        break
+                    if click_wait_selector:
+                        try:
+                            self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
+                        except PlaywrightTimeoutError:
+                            # Continue even if wait fails; content may still append
+                            pass
+                    self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
+            # Optional: perform incremental scrolls to bottom
+            if scroll_rounds and scroll_rounds > 0:
+                for _ in range(int(scroll_rounds)):
+                    try:
+                        self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    except Exception:
+                        pass
+                    self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
             self._page.wait_for_timeout(250)
             content = self._page.content()
             final_url = self._page.url

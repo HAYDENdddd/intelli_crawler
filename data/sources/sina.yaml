@@ -1,18 +1,22 @@
-source_name: Foresight News
+source_name: sina
 site_type: news
-target_url: https://foresightnews.pro/news
+target_url: https://finance.sina.com.cn/7x24/
 requires_login: false
 login_credentials:
   username: ''
   password: ''
 crawl_depth: 1
-entry_pattern: div.list_body a.news_body_title
+# 每条新闻块（稳定结构）
+entry_pattern: 'div.bd_i'
+
+# 从条目节点直接提取字段
 detail_pattern:
-  title: div.list_body .topic
-  published_at: div.list_body .topic-time
-  content: div.detail-body
-  content_html: div.detail-body::html
-keywords_filter: ["加密", "爆仓"]
+  title: 'p.bd_i_txt_c'
+  published_at: 'div.bd_i_time p.bd_i_time_c'
+  content: 'p.bd_i_txt_c'
+
+
+keywords_filter: []
 output_format: txt
 schedule:
   type: cron
@@ -26,11 +30,15 @@ anti_scraping_strategies:
   - 1.0
   - 3.0
   retry_on_fail: 2
-  use_headless_browser: false
+  use_headless_browser: true
   captcha_solver: false
 enable_incremental: true
 deduplication:
   by_url: true
   by_content: true
-  store_path: history/foresight_news.db
+  store_path: history/sina.db
 use_entry_content: true
+entry_interactions:
+  wait_selector: 'div.bd_i'
+  scroll_rounds: 50
+  scroll_pause_ms: 400

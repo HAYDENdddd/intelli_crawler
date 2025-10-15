@@ -1,0 +1,43 @@
+source_name: 10jqka
+site_type: news
+target_url: https://news.10jqka.com.cn/realtimenews.html
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: 'ul.newsText.all li'
+detail_pattern:
+  title: div.newsDetail > a strong
+  published_at: div.newsTimer
+  content: div.newsDetail > a
+keywords_filter: []
+output_format: txt
+schedule:
+  type: cron
+  value: "0 8 * * *"
+time_range:
+  relative: "last_24_hours"
+anti_scraping_strategies:
+  user_agent_rotation: false
+  proxy_pool: false
+  delay_range:
+  - 1.0
+  - 2.0
+  retry_on_fail: 2
+  use_headless_browser: true
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/odaily_newsflash.db
+use_entry_content: true # 入口页直接抽取记录
+entry_interactions:
+  wait_selector: 'ul.newsText.all li'
+  click_more_selector: 'text=点击加载更多'
+  click_more_times: 2
+  click_wait_selector: 'ul.newsText.all li'
+  scroll_rounds: 0
+  scroll_pause_ms: 500
+

@@ -134,7 +134,22 @@ class Orchestrator:
 
             entry_response = fetcher.fetch(
                 source,
-                FetchRequest(url=source.target_url, force_browser=source.use_entry_content),
+                FetchRequest(
+                    url=source.target_url,
+                    force_browser=source.use_entry_content,
+                    # 为动态入口页在浏览器中等待列表选择器渲染完成
+                    wait_selector=(
+                        source.entry_interactions.wait_selector or source.entry_pattern
+                        if source.use_entry_content
+                        else None
+                    ),
+                    # 入口滚动与点击交互（可选）
+                    scroll_rounds=source.entry_interactions.scroll_rounds,
+                    scroll_pause_ms=source.entry_interactions.scroll_pause_ms,
+                    click_more_selector=source.entry_interactions.click_more_selector,
+                    click_more_times=source.entry_interactions.click_more_times,
+                    click_wait_selector=source.entry_interactions.click_wait_selector,
+                ),
             )
             if entry_activity is not None:
                 entry_activity.close()
@@ -167,6 +182,12 @@ class Orchestrator:
                     prefetched_records = parser.extract_odaily_records(
                         entry_response.text, entry_response.url
                     )
+                else:
+                    # 通用入口页记录抽取：使用 entry_pattern 与 detail_pattern 从列表页直接产出记录
+                    try:
+                        prefetched_records = parser.extract_list_records(source, entry_response.text, entry_response.url)  # type: ignore[assignment]
+                    except Exception:
+                        prefetched_records = {}
             if prefetched_records:
                 detail_urls = list(prefetched_records.keys())
 

@@ -1,4 +1,4 @@
-source_name: Odaily Newsflash
+source_name: Odaily
 site_type: news
 target_url: https://www.odaily.news/zh-CN/newsflash
 requires_login: false
@@ -45,11 +45,19 @@ anti_scraping_strategies:
   - 1.0
   - 2.0
   retry_on_fail: 2
-  use_headless_browser: false
+  use_headless_browser: true
   captcha_solver: false
 enable_incremental: true
 deduplication:
   by_url: true
   by_content: true
   store_path: history/odaily_newsflash.db
-use_entry_content: true
+use_entry_content: true # 入口页直接抽取记录
+entry_interactions:
+  wait_selector: 'a[href^="/zh-CN/newsflash/"]'
+  click_more_selector: 'text=查看更多'
+  click_more_times: 2
+  click_wait_selector: 'a[href^="/zh-CN/newsflash/"]'
+  scroll_rounds: 0
+  scroll_pause_ms: 500
+

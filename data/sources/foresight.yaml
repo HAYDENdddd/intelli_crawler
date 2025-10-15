@@ -1,0 +1,41 @@
+source_name: Foresight
+site_type: news
+target_url: https://foresightnews.pro/news
+requires_login: false
+login_credentials:
+  username: ''
+  password: ''
+crawl_depth: 1
+entry_pattern: div.list_body a.news_body_title
+detail_pattern:
+  title: div.list_body .topic
+  published_at: div.list_body .topic-time
+  content: div.detail-body
+  content_html: div.detail-body::html
+keywords_filter: ["加密", "爆仓"]
+output_format: txt
+schedule:
+  type: cron
+  value: "0 8 * * *"
+time_range:
+  relative: "last_24_hours"
+anti_scraping_strategies:
+  user_agent_rotation: true
+  proxy_pool: false
+  delay_range:
+  - 1.0
+  - 3.0
+  retry_on_fail: 2
+  use_headless_browser: false
+  captcha_solver: false
+enable_incremental: true
+deduplication:
+  by_url: true
+  by_content: true
+  store_path: history/foresight_news.db
+use_entry_content: true
+
+entry_interactions:
+  wait_selector: div.list_body a.news_body_title
+  scroll_rounds: 2
+  scroll_pause_ms: 400
