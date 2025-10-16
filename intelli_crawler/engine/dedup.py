@@ -44,9 +44,7 @@ class DeduplicationStore:
         content_hash = self._hash(content)
         with self._lock:
             if self.enable_url:
-                cur = self._conn.execute(
-                    "SELECT 1 FROM crawl_history WHERE url = ?", (url,)
-                )
+                cur = self._conn.execute("SELECT 1 FROM crawl_history WHERE url = ?", (url,))
                 url_dup = cur.fetchone() is not None
             if self.enable_content:
                 cur = self._conn.execute(

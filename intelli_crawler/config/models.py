@@ -40,14 +40,18 @@ class ScheduleConfig(BaseModel):
             raise ValueError("Cron schedule requires string expression")
         if self.type is ScheduleType.INTERVAL and not isinstance(self.value, (int, float, dict)):
             raise ValueError("Interval schedule requires seconds (int/float) or kwargs dict")
-        if self.type is ScheduleType.ONCE and self.value is not None and not isinstance(self.value, str):
+        if (
+            self.type is ScheduleType.ONCE
+            and self.value is not None
+            and not isinstance(self.value, str)
+        ):
             raise ValueError("Once schedule expects ISO datetime string or null")
         return self
 
 
 class TimeRange(BaseModel):
     """时间范围配置，支持固定日期和相对时间表达式。
-    
+
     支持的格式：
     1. 固定日期范围：start: 2025-01-14, end: 2025-01-15
     2. 相对时间表达式：relative: "last_24_hours" 或 "last_7_days"
@@ -63,44 +67,46 @@ class TimeRange(BaseModel):
         # 检查是否同时配置了固定日期和相对时间
         has_fixed = self.start is not None and self.end is not None
         has_relative = self.relative is not None
-        
+
         if has_fixed and has_relative:
             raise ValueError("不能同时配置固定日期范围和相对时间表达式")
-        
+
         if not has_fixed and not has_relative:
             raise ValueError("必须配置固定日期范围或相对时间表达式")
-        
+
         # 验证固定日期范围
         if has_fixed:
             if self.end < self.start:
                 raise ValueError("结束日期不能早于开始日期")
-        
+
         # 验证相对时间表达式
         if has_relative:
             valid_relatives = ["last_24_hours", "last_7_days", "last_30_days"]
             if self.relative not in valid_relatives:
-                raise ValueError(f"不支持的相对时间表达式: {self.relative}，支持的格式: {valid_relatives}")
-        
+                raise ValueError(
+                    f"不支持的相对时间表达式: {self.relative}，支持的格式: {valid_relatives}"
+                )
+
         return self
-    
+
     def get_date_range(self, reference_time: datetime | None = None) -> tuple[date, date]:
         """获取实际的日期范围
-        
+
         Args:
             reference_time: 参考时间，默认为当前时间
-            
+
         Returns:
             tuple[date, date]: (开始日期, 结束日期)
         """
         if self.start is not None and self.end is not None:
             # 固定日期范围
             return self.start, self.end
-        
+
         if self.relative is not None:
             # 相对时间表达式
             if reference_time is None:
                 reference_time = datetime.now()
-            
+
             if self.relative == "last_24_hours":
                 end_date = reference_time.date()
                 start_date = (reference_time - timedelta(days=1)).date()
@@ -112,9 +118,9 @@ class TimeRange(BaseModel):
                 start_date = (reference_time - timedelta(days=30)).date()
             else:
                 raise ValueError(f"不支持的相对时间表达式: {self.relative}")
-            
+
             return start_date, end_date
-        
+
         raise ValueError("时间范围配置无效")
 
 
@@ -134,6 +140,17 @@ class AntiScrapingStrategies(BaseModel):
     retry_on_fail: int = 0
     use_headless_browser: bool = False
     captcha_solver: bool = False
+    # 新增stealth相关参数
+    use_stealth_js: bool = False
+    randomize_viewport: bool = False
+    fake_webdriver: bool = False
+    hide_automation_flags: bool = False
+    viewport_size: tuple[int, int] = (1920, 1080)
+    extra_headers: dict[str, str] = Field(default_factory=dict)
+    # 新增浏览器模式控制
+    headless_mode: bool = True  # 控制是否使用无头模式
+    page_timeout: int = 30000  # 页面超时设置（毫秒）
+    navigation_timeout: int = 30000  # 导航超时设置（毫秒）
 
     @field_validator("delay_range", mode="before")
     @classmethod
@@ -162,6 +179,7 @@ class DeduplicationConfig(BaseModel):
     def _coerce_path(cls, value: Any) -> Path:
         return Path(value)
 
+
 class SourceConfig(BaseModel):
     """Full definition of a scrape source."""
 
@@ -181,6 +199,7 @@ class SourceConfig(BaseModel):
     enable_incremental: bool = True
     use_entry_content: bool = False
     deduplication: DeduplicationConfig = Field(default_factory=DeduplicationConfig)
+
     # Entry page interactions for dynamic content (optional)
     # - wait_selector: CSS selector to wait for after navigation
     # - scroll_rounds: number of times to scroll to page bottom to load more

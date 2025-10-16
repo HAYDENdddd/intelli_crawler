@@ -161,10 +161,12 @@ class Orchestrator:
             if not detail_urls:
                 detail_urls = [source.target_url]
             initial_total = len(detail_urls)
+
             # 简洁进度条显示
             def _bar(done: int, total: int, width: int = 20) -> str:
                 filled = int(width * (done / total)) if total > 0 else 0
                 return "#" * filled + "." * (width - filled)
+
             # 在确定总量后，切换到确定进度（若支持）；否则初始化单源进度
             try:
                 if hasattr(progress, "set_total"):
@@ -184,6 +186,10 @@ class Orchestrator:
                     )
                 elif "odaily.news" in hostname:
                     prefetched_records = parser.extract_odaily_records(
+                        entry_response.text, entry_response.url
+                    )
+                elif "xueqiu.com" in hostname:
+                    prefetched_records = parser.extract_xueqiu_records(
                         entry_response.text, entry_response.url
                     )
                 else:
@@ -207,7 +213,11 @@ class Orchestrator:
                     summary["skipped"] += dedup_skipped
                 detail_urls = filtered_urls
                 if prefetched_records:
-                    prefetched_records = {url: prefetched_records[url] for url in detail_urls if url in prefetched_records}
+                    prefetched_records = {
+                        url: prefetched_records[url]
+                        for url in detail_urls
+                        if url in prefetched_records
+                    }
 
             if not detail_urls:
                 return summary
@@ -282,7 +292,9 @@ class Orchestrator:
                 else:
                     status = "invalid"
             else:
-                status, enriched, reason = self._fetch_and_validate(fetcher, parser, source, url, force_browser=False)
+                status, enriched, reason = self._fetch_and_validate(
+                    fetcher, parser, source, url, force_browser=False
+                )
             if status == "skipped":
                 return ProcessingResult(status="skipped", url=url, reason=reason)
             if status == "invalid" and self._should_force_browser(source):
@@ -292,11 +304,16 @@ class Orchestrator:
                     )
                 except Exception as exc:  # noqa: BLE001
                     structlog.get_logger("intelli_crawler").warning(
-                        "browser_fallback_failed", url=url, source=source.source_name, error=str(exc)
+                        "browser_fallback_failed",
+                        url=url,
+                        source=source.source_name,
+                        error=str(exc),
                     )
                     status, reason = "failed", str(exc)
             if status != "success":
-                return ProcessingResult(status="failed", url=url, reason=reason or "validation_failed")
+                return ProcessingResult(
+                    status="failed", url=url, reason=reason or "validation_failed"
+                )
             if window and not self._within_window(enriched, window, source.source_name):
                 self.logger.info(
                     "window_filtered",
@@ -320,7 +337,6 @@ class Orchestrator:
             )
             return ProcessingResult(status="failed", url=url, reason=str(exc))
 
-
     def _fetch_and_validate(
         self,
         fetcher: Fetcher,
@@ -340,7 +356,9 @@ class Orchestrator:
             return "invalid", None, reason
         return "success", enriched, None
 
-    def _enrich_record(self, data: dict[str, object], source: SourceConfig, url: str) -> dict[str, object]:
+    def _enrich_record(
+        self, data: dict[str, object], source: SourceConfig, url: str
+    ) -> dict[str, object]:
         enriched = dict(data)
         enriched.setdefault("url", url)
         enriched.setdefault("source_name", source.source_name)
@@ -354,11 +372,15 @@ class Orchestrator:
                         enriched.setdefault(key, value)
         content = enriched.get("content")
         if isinstance(content, str):
-            summary = textwrap.shorten(content.replace("\n", " ").strip(), width=240, placeholder="…")
+            summary = textwrap.shorten(
+                content.replace("\n", " ").strip(), width=240, placeholder="…"
+            )
             enriched.setdefault("summary", summary)
         return enriched
 
-    def _within_window(self, record: dict[str, object], window: CrawlWindow, source_name: str) -> bool:
+    def _within_window(
+        self, record: dict[str, object], window: CrawlWindow, source_name: str
+    ) -> bool:
         timestamp = self._extract_record_datetime(record, fallback_year=window.start.year)
         if timestamp is None:
             self.logger.debug(
@@ -402,7 +424,9 @@ class Orchestrator:
                 return dt
         return None
 
-    def _coerce_datetime(self, value: object, *, fallback_year: int | None = None) -> datetime | None:
+    def _coerce_datetime(
+        self, value: object, *, fallback_year: int | None = None
+    ) -> datetime | None:
         if value is None:
             return None
         if isinstance(value, datetime):
@@ -490,7 +514,9 @@ class Orchestrator:
         except Exception:
             return None
 
-    def _validate_record(self, record: dict[str, object], *, strict: bool = True) -> tuple[bool, str | None]:
+    def _validate_record(
+        self, record: dict[str, object], *, strict: bool = True
+    ) -> tuple[bool, str | None]:
         title = str(record.get("title") or "").strip()
         content = str(record.get("content") or "").strip()
         if not title:
@@ -546,7 +572,9 @@ class ProcessingResult:
 
 class DeduplicationStoreFactory:
     @staticmethod
-    def build(storage: SQLiteManager, global_config: GlobalConfig, source: SourceConfig) -> DeduplicationStore:
+    def build(
+        storage: SQLiteManager, global_config: GlobalConfig, source: SourceConfig
+    ) -> DeduplicationStore:
         history_path = source.resolved_history_path(Path(global_config.history_dir))
         return DeduplicationStore(
             storage,

@@ -8,13 +8,22 @@ user_agent_list:
 - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)
   Chrome/124.0.0.0 Safari/537.36
 - Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0
+# 请求延迟范围（秒）
 default_delay_range:
 - 1.0
 - 3.0
+# 是否启用进度条
 enable_progress_bar: true
-show_live_status: false
+# 是否显示实时状态
+# 是否显示实时状态（当前抓取进度、成功/失败计数等）
+show_live_status: true
+# 最大URL显示长度
 max_url_display_length: 80
+# 线程池工作线程数
 thread_pool_workers: 16
+# 历史记录目录
 history_dir: data/history
+# 输出文件目录
 outputs_dir: data/outputs
+# 源文件目录
 sources_dir: data/sources

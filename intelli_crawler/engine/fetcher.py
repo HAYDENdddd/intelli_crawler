@@ -109,14 +109,16 @@ class Fetcher:
             if request.force_browser:
                 directive.use_browser = True
             timeout = request.timeout or directive.timeout or 20
-            proxies = {"http": directive.proxy, "https": directive.proxy} if directive.proxy else None
+            proxies = (
+                {"http": directive.proxy, "https": directive.proxy} if directive.proxy else None
+            )
 
             if directive.delay:
                 time.sleep(min(directive.delay, 5.0))
 
             try:
                 if directive.use_browser:
-                    response = self._fetch_via_browser(request, req_headers, timeout)
+                    response = self._fetch_via_browser(request, req_headers, timeout, source)
                 else:
                     request_kwargs: dict[str, Any] = {
                         "method": request.method,
@@ -158,18 +160,20 @@ class Fetcher:
             if not chain.should_retry(context):
                 break
 
-        raise RuntimeError(f"Fetch failed after {context.max_attempts} attempts: {request.url}") from last_error
+        raise RuntimeError(
+            f"Fetch failed after {context.max_attempts} attempts: {request.url}"
+        ) from last_error
 
     # ------------------------------------------------------------------
     def _build_chain(self, source: SourceConfig) -> tuple[AntiBotContext, AntiBotChain]:
         return strategies.build_chain(source, self.global_config, self.proxy_pool, self.ua_pool)
 
     def _fetch_via_browser(
-        self, request: FetchRequest, headers: dict[str, str], timeout: float
+        self, request: FetchRequest, headers: dict[str, str], timeout: float, source: "SourceConfig"
     ) -> "BrowserResponse":
         """Use Playwright to retrieve dynamic pages when configured."""
 
-        session = self._ensure_browser_session(headers)
+        session = self._ensure_browser_session(headers, source)
         return session.fetch(
             request.url,
             headers,
@@ -186,12 +190,14 @@ class Fetcher:
             prefer_scroll_first=request.prefer_scroll_first,
         )
 
-    def _ensure_browser_session(self, headers: dict[str, str]) -> "_PlaywrightSession":
+    def _ensure_browser_session(
+        self, headers: dict[str, str], source: "SourceConfig"
+    ) -> "_PlaywrightSession":
         thread_id = get_ident()
         with self._browser_lock:
             session = self._browser_sessions.get(thread_id)
             if session is None:
-                session = _PlaywrightSession(headers.get("User-Agent"))
+                session = _PlaywrightSession(headers.get("User-Agent"), source)
                 self._browser_sessions[thread_id] = session
             return session
 
@@ -245,8 +251,9 @@ class BrowserResponse:
 
 
 class _PlaywrightSession:
-    def __init__(self, user_agent: str | None) -> None:
+    def __init__(self, user_agent: str | None, source_config: "SourceConfig | None" = None) -> None:
         self._user_agent = user_agent
+        self._source_config = source_config
         self._lock = Lock()
         self._playwright = None
         self._browser = None
@@ -259,19 +266,77 @@ class _PlaywrightSession:
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:  # pragma: no cover
-            raise RuntimeError("Playwright support requires installing the 'playwright' package.") from exc
+            raise RuntimeError(
+                "Playwright support requires installing the 'playwright' package."
+            ) from exc
+
+        # 获取反爬虫策略配置
+        anti_scraping = (
+            self._source_config.anti_scraping_strategies if self._source_config else None
+        )
+
+        # 检查是否启用无头模式，默认为True
+        headless_mode = True
+        if anti_scraping and hasattr(anti_scraping, "headless_mode"):
+            headless_mode = anti_scraping.headless_mode
+
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=True)
+        self._browser = self._playwright.chromium.launch(
+            headless=headless_mode,
+            args=[
+                "--ignore-ssl-errors=yes",
+                "--ignore-certificate-errors",
+                "--ignore-certificate-errors-spki-list",
+                "--disable-web-security",
+                "--allow-running-insecure-content",
+            ],
+        )
+
+        # 设置视窗大小
+        viewport_size = (1920, 1080)  # 默认值
+        if anti_scraping and hasattr(anti_scraping, "viewport_size"):
+            viewport_size = anti_scraping.viewport_size
+
         # 为中文站点在 Windows 上提升兼容性：设置中文语言与时区，减少因语言/地区导致的重定向或内容缺失。
         try:
             self._context = self._browser.new_context(
                 user_agent=self._user_agent,
                 locale="zh-CN",
                 timezone_id="Asia/Shanghai",
+                viewport={"width": viewport_size[0], "height": viewport_size[1]},
+                ignore_https_errors=True,  # 忽略SSL错误
             )
         except TypeError:
             # 某些老版本 Playwright 不支持上述参数，回退到最小上下文。
-            self._context = self._browser.new_context(user_agent=self._user_agent)
+            self._context = self._browser.new_context(
+                user_agent=self._user_agent,
+                ignore_https_errors=True,  # 忽略SSL错误
+            )
+
+        # 设置额外的HTTP头部
+        if (
+            anti_scraping
+            and hasattr(anti_scraping, "extra_headers")
+            and anti_scraping.extra_headers
+        ):
+            self._context.set_extra_http_headers(anti_scraping.extra_headers)
+
+        # 注入stealth.js脚本以绕过浏览器自动化检测
+        if anti_scraping and getattr(anti_scraping, "use_stealth_js", False):
+            try:
+                import os
+
+                stealth_js_path = os.path.join(
+                    os.path.dirname(__file__), "..", "..", "stealth.min.js"
+                )
+                if os.path.exists(stealth_js_path):
+                    with open(stealth_js_path, "r", encoding="utf-8") as f:
+                        stealth_js = f.read()
+                    self._context.add_init_script(stealth_js)
+            except Exception:
+                # 如果stealth.js加载失败，继续执行但不注入脚本
+                pass
+
         self._page = self._context.new_page()
 
     def fetch(
@@ -309,7 +374,9 @@ class _PlaywrightSession:
                 try:
                     self._page.wait_for_selector(wait_selector, timeout=timeout_ms)
                 except PlaywrightTimeoutError as exc:
-                    raise RuntimeError(f"Playwright selector wait timeout for '{wait_selector}': {exc}") from exc
+                    raise RuntimeError(
+                        f"Playwright selector wait timeout for '{wait_selector}': {exc}"
+                    ) from exc
             # Auto interactions: intelligently mix scroll and click
             if auto_interactions and auto_max_rounds > 0:
                 item_selector = wait_selector or click_wait_selector
@@ -337,7 +404,9 @@ class _PlaywrightSession:
                                     pass
                                 if click_wait_selector:
                                     try:
-                                        self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
+                                        self._page.wait_for_selector(
+                                            click_wait_selector, timeout=timeout_ms
+                                        )
                                     except PlaywrightTimeoutError:
                                         pass
                                 self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
@@ -405,7 +474,9 @@ class _PlaywrightSession:
                             break
                         if click_wait_selector:
                             try:
-                                self._page.wait_for_selector(click_wait_selector, timeout=timeout_ms)
+                                self._page.wait_for_selector(
+                                    click_wait_selector, timeout=timeout_ms
+                                )
                             except PlaywrightTimeoutError:
                                 pass
                         self._page.wait_for_timeout(max(0, int(scroll_pause_ms)))
